@@ -2,6 +2,8 @@
 #include "communication.h"
 #include "Packet.h"
 #include "structs.h"
+#include "display.h"
+#include "output.h"
 
 HandshakePacket handshake_packet;
 ControlPacket control_packet;
@@ -24,17 +26,10 @@ void process_packets() {
           Serial3.write(0x01); // clear
           break;
         case 1: // VESSEL_DATA
-          VesselData* vessel_data = (VesselData*)&buffer;          
-          Serial3.write(0xFE);
-          Serial3.write(128);
-
-          Serial3.print("AP: ");
-          Serial3.print(vessel_data->AP);
-          Serial3.write(0xFE);
-          Serial3.write(192);
-          Serial3.print("PE: ");
-          Serial3.print(vessel_data->PE);
-
+          // Serial3.write(0xFE);Serial3.write(128);
+          // Serial3.write("VESSEL");
+          Output.set(DisplayMode::Orbit, (VesselData*)&buffer);
+          Display.display_vesseldata(DisplayMode::Orbit, (VesselData*)&buffer);
           break;
       }
 
@@ -43,6 +38,8 @@ void process_packets() {
 }
 
 bool send_packet(uint8_t* data, uint8_t len) {
+  uint8_t old_sreg = SREG;
+  cli();
   Serial.write(0xBE);
   Serial.write(0xEF);
   Serial.write(len);
@@ -52,6 +49,7 @@ bool send_packet(uint8_t* data, uint8_t len) {
     Serial.write(data[i]);
   }
   Serial.write(checksum);
+  SREG = old_sreg;
 
   return true;
 }

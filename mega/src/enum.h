@@ -21,7 +21,7 @@ enum class MainControls : uint8_t {
     Brakes = 0x08, 
     Gears = 0x10, 
     Lights = 0x20, 
-    RCS = 0x40, 
+    RCS = 0x40,
     SAS = 0x80,
 };
 
@@ -44,6 +44,17 @@ enum class NavballMode : uint8_t {
     Orbit,
     Surface,
     Target
+};
+
+enum class DisplayMode : uint8_t {
+    None,
+    Orbit,
+
+};
+
+enum class OutputType : uint8_t {
+    DEFAULT_LOW = 1,
+    DEFAULT_HIGH = 2,
 };
 
 #endif

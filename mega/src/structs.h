@@ -24,7 +24,7 @@ struct __attribute__((__packed__)) InputOutput {
   // int8_t lock;
 };
 
-struct __attribute__((__packed__)) Input {
+struct __attribute__((__packed__)) InputPin {
     InputType id;
     // 1: momentary
     // 2: toggle
@@ -36,8 +36,10 @@ struct __attribute__((__packed__)) Input {
     InputType lock;
 };
 
-struct __attribute__((__packed__)) Output {
-    
+struct __attribute__((__packed__)) OutputPin {
+    uint8_t pin;
+    OutputType type;
+    uint8_t x;
 };
 
 

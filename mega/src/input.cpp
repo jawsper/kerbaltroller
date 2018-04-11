@@ -5,7 +5,7 @@
 
 // btn, led
 const InputOutput buttons[] = {
-  { 1, 25, 24, true }, // [0] brakes
+  { 3, 25, 24, true }, // [0] brakes
   { 1, 27, 26, true }, // [1] lights
   { 1, 31, 30, true }, // [2] gear
   { 1, 33, 32, true }, // [3] sas
@@ -19,20 +19,20 @@ const InputOutput buttons[] = {
 
 #define SWITCH_COUNT (sizeof(buttons) / sizeof(buttons[0]))
 
-const Input inputs[] = {
-    { InputType::Brakes, 1, 25, true, MainControls::Brakes, InputType::None },
-    { InputType::Lights, 1, 27, true, MainControls::Lights, InputType::None },
-    { InputType::Gears, 1, 31, true, MainControls::Gears, InputType::None },
-    { InputType::SAS, 1, 33, true, MainControls::SAS, InputType::None },
-    { InputType::RCS, 1, 37, true, MainControls::RCS, InputType::None },
-    { InputType::Stage, 1, 39, true, MainControls::Stage, InputType::StageLock },
-    { InputType::None, 1, 43, true, MainControls::None, InputType::None }, // unused
-    { InputType::None, 1, 45, true, MainControls::None, InputType::None }, // unused
-    { InputType::StageLock, 2, 50, false, MainControls::None, InputType::None }, // stage lock
-    { InputType::Abort, 2, 48, false, MainControls::Abort, InputType::None },
-};
+// const InputPin inputs[] = {
+//     { InputType::Brakes, 1, 25, true, MainControls::Brakes, InputType::None },
+//     { InputType::Lights, 1, 27, true, MainControls::Lights, InputType::None },
+//     { InputType::Gears, 1, 31, true, MainControls::Gears, InputType::None },
+//     { InputType::SAS, 1, 33, true, MainControls::SAS, InputType::None },
+//     { InputType::RCS, 1, 37, true, MainControls::RCS, InputType::None },
+//     { InputType::Stage, 1, 39, true, MainControls::Stage, InputType::StageLock },
+//     { InputType::None, 1, 43, true, MainControls::None, InputType::None }, // unused
+//     { InputType::None, 1, 45, true, MainControls::None, InputType::None }, // unused
+//     { InputType::StageLock, 2, 50, false, MainControls::None, InputType::None }, // stage lock
+//     { InputType::Abort, 2, 48, false, MainControls::Abort, InputType::None },
+// };
 
-#define INPUT_COUNT (sizeof(inputs) / sizeof(Input))
+// #define INPUT_COUNT (sizeof(inputs) / sizeof(InputPin))
 
 
 #define BTN_BRAKES 0
@@ -50,8 +50,8 @@ const ControlToButton controls_to_buttons[] = {
   { MainControls::Lights, BTN_LIGHTS, -1 },
   { MainControls::Gears, BTN_GEAR, -1 },
   { MainControls::Abort, BTN_ABORT, -1 },
-  { MainControls::RCS, BTN_SAS, -1 },
-  { MainControls::SAS, BTN_RCS, -1 },
+  { MainControls::SAS, BTN_SAS, -1 },
+  { MainControls::RCS, BTN_RCS, -1 },
 };
 
 #define CONTROLS_TO_BUTTONS_COUNT (sizeof(controls_to_buttons) / sizeof(controls_to_buttons[0]))
@@ -63,19 +63,20 @@ Bounce debouncers[SWITCH_COUNT];
 #define ANALOG_ROLL A2
 #define ANALOG_THROTTLE A3
 
-void setup_input() {
+void CInput::setup() {
   uint8_t i;
   for(i = 0; i < SWITCH_COUNT; i++) {
     switch(buttons[i].type) {
       case 1:
+      case 3:
         pinMode(buttons[i].input, INPUT_PULLUP);
-        pinMode(buttons[i].output, OUTPUT);
-        digitalWrite(buttons[i].output, LOW);
+        // pinMode(buttons[i].output, OUTPUT);
+        // digitalWrite(buttons[i].output, LOW);
         break;
       case 2:
         pinMode(buttons[i].input, INPUT);
-        pinMode(buttons[i].output, OUTPUT);
-        digitalWrite(buttons[i].output, HIGH);
+        // pinMode(buttons[i].output, OUTPUT);
+        // digitalWrite(buttons[i].output, HIGH);
         break;
     }
     debouncers[i].attach(buttons[i].input);
@@ -90,30 +91,53 @@ bool get_button_val(int button) {
 }
 
 unsigned long last_update = 0;
-const unsigned long update_interval = 10;
+const unsigned long update_interval = 50;
 
-void loop_input()  {
+void CInput::loop()  {
   uint8_t i;
+  if((millis() - last_update) >= update_interval) {
+
   for(i = 0; i < SWITCH_COUNT; i++) {
     debouncers[i].update();
   }
-
-  if((millis() - last_update) >= update_interval) {
-    last_update = millis();
-
     for(i = 0; i < CONTROLS_TO_BUTTONS_COUNT; i++) {
-      bool val = get_button_val(controls_to_buttons[i].button);
-      if(controls_to_buttons[i].lock >= 0) {
-        if(!get_button_val(controls_to_buttons[i].lock)) val = false;
+      uint8_t button = controls_to_buttons[i].button;
+      int8_t lock = controls_to_buttons[i].lock;
+      uint8_t control = (uint8_t)controls_to_buttons[i].control;
+
+      bool val = false;
+      switch(buttons[button].type) {
+        case 3:
+          // toggle button
+          // TODO: deal with button being held while output changes!
+          val = digitalRead(buttons[button].output);
+          // if(!digitalRead(buttons[button].input)) {
+          if(debouncers[button].fell()) {
+            val = !val;
+          }
+          break;
+        case 1:
+        case 2:
+          val = get_button_val(button);
+          break;
+      }
+      if(lock >= 0) {
+        if(!get_button_val(lock)) val = false;
       }
 
-      control_packet.set_main_control((uint8_t)controls_to_buttons[i].control, val);
+      control_packet.set_main_control(control, val);
     }
 
+    control_packet.yaw = get_analog_value(ANALOG_YAW);
     control_packet.pitch = get_analog_value(ANALOG_PITCH);
     control_packet.roll = get_analog_value(ANALOG_ROLL);
-    control_packet.yaw = get_analog_value(ANALOG_YAW);
     control_packet.throttle = get_analog_value_slider(ANALOG_THROTTLE);
+    /* 
+    current issue with button type 3 (toggle), 
+    is that the value gets cleared before the control packet is sent
+
+    */
+    last_update = millis();
     send(control_packet);
   }
 }
